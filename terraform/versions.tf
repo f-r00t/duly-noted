@@ -12,7 +12,7 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.17"
+      version = "~> 3.3"
     }
     random = {
       source  = "hashicorp/random"
@@ -31,7 +31,7 @@ provider "kubernetes" {
 }
 
 provider "helm" {
-  kubernetes {
+  kubernetes = {
     host                   = kind_cluster.this.endpoint
     client_certificate     = kind_cluster.this.client_certificate
     client_key             = kind_cluster.this.client_key
