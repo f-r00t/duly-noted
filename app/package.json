@@ -1,0 +1,19 @@
+{
+  "name": "duly-noted",
+  "version": "1.0.0",
+  "description": "A life changing todo list app",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.13.0"
+  }
+}
