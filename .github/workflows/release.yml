@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    # Only application changes produce a new image. This also keeps the
+    # manifest commit made by this workflow from triggering it again.
+    paths:
+      - app/**
+      - Dockerfile
+      - .dockerignore
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/f-r00t/duly-noted
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Build and push image
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Update image tag in manifests
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # With branch protection on main, GITHUB_TOKEN cannot push. In that
+      # case add a deploy key with write access that is allowed to bypass
+      # the protection, and store its private key as the DEPLOY_KEY secret.
+      # Without the secret, checkout falls back to GITHUB_TOKEN.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - name: Set image tag
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: sed -i -E "s|^(\s*newTag:).*|\1 ${TAG}|" k8s/kustomization.yaml
+      - name: Commit and push
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          if git diff --quiet; then
+            echo "Manifests already point at ${TAG}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${IMAGE}:${TAG}"
+          git push
