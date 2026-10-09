@@ -8,10 +8,13 @@ output "kubeconfig" {
   value       = kind_cluster.this.kubeconfig_path
 }
 
-output "argocd_ui" {
-  description = "How to reach the Argo CD UI."
-  value       = <<-EOT
-    kubectl -n argocd port-forward svc/argocd-server 8443:443   # then open https://localhost:8443
-    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d   # user: admin
-  EOT
+output "argocd_url" {
+  description = "URL of the Argo CD UI (self-signed certificate). The user is admin."
+  value       = "https://localhost:${var.argocd_host_port}"
+}
+
+output "argocd_admin_password" {
+  description = "Initial password of the Argo CD admin user. Show it with `terraform output -raw argocd_admin_password`."
+  value       = data.kubernetes_secret.argocd_admin.data["password"]
+  sensitive   = true
 }

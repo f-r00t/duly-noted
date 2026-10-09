@@ -17,6 +17,12 @@ resource "kind_cluster" "this" {
         container_port = var.app_node_port
         host_port      = var.app_host_port
       }
+
+      # Exposes the Argo CD UI on localhost.
+      extra_port_mappings {
+        container_port = var.argocd_node_port
+        host_port      = var.argocd_host_port
+      }
     }
   }
 }
@@ -59,6 +65,29 @@ resource "helm_release" "argocd" {
   chart            = "argo-cd"
   version          = var.argocd_chart_version
   timeout          = 600
+
+  # The UI is served through a NodePort that the kind cluster above maps to
+  # localhost, so no port-forward is needed.
+  values = [yamlencode({
+    server = {
+      service = {
+        type          = "NodePort"
+        nodePortHttps = var.argocd_node_port
+        # The chart's default HTTP NodePort is 30080, which belongs to the
+        # application. Only HTTPS is mapped, so let Kubernetes pick this one.
+        nodePortHttp = null
+      }
+    }
+  })]
+}
+
+# The admin password Argo CD generates on first install, so that logging in
+# to the UI only takes `terraform output`.
+data "kubernetes_secret" "argocd_admin" {
+  metadata {
+    name      = "argocd-initial-admin-secret"
+    namespace = helm_release.argocd.namespace
+  }
 }
 
 # Registers the application with Argo CD, which from then on keeps the

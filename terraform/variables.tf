@@ -16,6 +16,18 @@ variable "app_node_port" {
   default     = 30080
 }
 
+variable "argocd_host_port" {
+  description = "Port on localhost where the Argo CD UI is reachable."
+  type        = number
+  default     = 8443
+}
+
+variable "argocd_node_port" {
+  description = "HTTPS NodePort of the Argo CD server Service."
+  type        = number
+  default     = 30443
+}
+
 variable "app_namespace" {
   description = "Namespace the application is deployed to (must match k8s/kustomization.yaml)."
   type        = string
