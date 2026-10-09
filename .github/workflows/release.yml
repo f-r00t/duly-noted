@@ -34,7 +34,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: tag
         run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
@@ -67,7 +67,7 @@ jobs:
       # case add a deploy key with write access that is allowed to bypass
       # the protection, and store its private key as the DEPLOY_KEY secret.
       # Without the secret, checkout falls back to GITHUB_TOKEN.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           ssh-key: ${{ secrets.DEPLOY_KEY }}
