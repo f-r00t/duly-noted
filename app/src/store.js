@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const { waitForDatabase } = require('./db');
+const { pendingMigrations } = require('./migrate');
 const { logger } = require('./log');
 
 // Both stores expose the same interface:
@@ -44,21 +46,15 @@ const COLUMNS = 'id, title, completed, created_at AS "createdAt"';
 function createPgStore(pool = new Pool(), { log = logger } = {}) {
   return {
     async init({ retries = 30, delayMs = 1000 } = {}) {
-      for (let attempt = 1; ; attempt++) {
-        try {
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS todos (
-              id         SERIAL PRIMARY KEY,
-              title      TEXT NOT NULL,
-              completed  BOOLEAN NOT NULL DEFAULT FALSE,
-              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-            )`);
-          return;
-        } catch (err) {
-          if (attempt >= retries) throw err;
-          log.warn('database not ready, retrying', { attempt, retries, error: err.message });
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
+      await waitForDatabase(pool, { retries, delayMs, log });
+      // The schema belongs to the migrations in migrations/, which run before
+      // a new version is rolled out. Refusing to start on a stale schema means
+      // a half-migrated state never serves requests.
+      const pending = await pendingMigrations(pool);
+      if (pending.length > 0) {
+        throw new Error(
+          `database schema is behind, pending migrations: ${pending.join(', ')} (run "npm run migrate")`,
+        );
       }
     },
     async ping() {

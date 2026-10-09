@@ -10,10 +10,13 @@
   },
   "scripts": {
     "start": "node src/server.js",
+    "migrate": "node src/migrate.js",
+    "migrate:create": "node-pg-migrate create --migration-file-language sql --migration-filename-format index --migrations-dir migrations",
     "test": "node --test"
   },
   "dependencies": {
     "express": "^5.1.0",
+    "node-pg-migrate": "^9.0.0",
     "pg": "^8.13.0"
   }
 }
