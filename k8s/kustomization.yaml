@@ -13,4 +13,4 @@ resources:
 # Argo CD picks up the change and rolls out the new image.
 images:
   - name: ghcr.io/f-r00t/duly-noted
-    newTag: sha-2150134
+    newTag: sha-3eac51f
