@@ -159,3 +159,29 @@ For database migrations we use
 runner of our own because migrations are easy to get subtly wrong. It gives us
 ordered SQL files, a tracking table and an advisory lock against concurrent
 runs, which is everything the migration Job needs.
+
+## Limitations and trade-offs
+
+The infrastructure can only be provisioned locally. The cluster runs on the
+developer's machine, so there is no public URL and the application is only
+reachable from that machine. Moving to a hosted cluster would change the kind
+resource and the port mappings in Terraform and nothing else in the pipeline,
+but it was not worth the cost for this project.
+
+Pull-based deployment decouples CI from the cluster, so CI never learns
+whether a deployment succeeded. The release workflow is green once the tag
+commit is pushed, and the result is only visible in Argo CD. Argo CD
+notifications or commit statuses would close that loop. Argo CD also polls
+the repository rather than being notified, so a release takes up to a few
+minutes to reach the cluster.
+
+Migrations run forward only. A rollback reverts the image tag and restores
+the previous code, but the schema stays at the newer version, so every
+migration must be compatible with the version before it. Down migrations
+exist in the files for local development, but nothing in the pipeline runs
+them.
+
+The generated database password and the Argo CD admin password live in the
+local Terraform state, which is acceptable for a developer machine and not
+for a shared environment. Dependabot does not see the PostgreSQL image
+referenced in the manifests, since it only scans Dockerfiles. 
