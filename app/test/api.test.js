@@ -27,18 +27,34 @@ for (const backend of backends) {
     let reset;
     let base;
 
-    const request = (method, path, body) =>
+    // Log lines are captured instead of written, so the tests can assert on them.
+    const logs = [];
+    const capture = (level) => (msg, fields = {}) => logs.push({ level, msg, ...fields });
+    const log = { info: capture('info'), warn: capture('warn'), error: capture('error') };
+
+    const request = (method, path, body, headers = {}) =>
       fetch(base + path, {
         method,
-        headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+        headers: { ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...headers },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
+
+    // The request log line is written when the response has been flushed,
+    // which can be a moment after the client has received it.
+    const waitForRequestLog = async (path) => {
+      for (let i = 0; i < 100; i++) {
+        const entry = logs.find((e) => e.msg === 'request' && e.path === path);
+        if (entry) return entry;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      return undefined;
+    };
 
     const createTodo = async (title) => (await request('POST', '/api/todos', { title })).json();
 
     before(async () => {
       ({ store, reset } = await backend.setup());
-      server = createApp(store).listen(0);
+      server = createApp(store, { log }).listen(0);
       await new Promise((resolve) => server.once('listening', resolve));
       base = `http://127.0.0.1:${server.address().port}`;
     });
@@ -49,6 +65,7 @@ for (const backend of backends) {
     });
 
     beforeEach(async () => {
+      logs.length = 0;
       if (reset) return reset();
       for (const todo of await store.list()) await store.remove(todo.id);
     });
@@ -126,6 +143,39 @@ for (const backend of backends) {
       const { id } = await createTodo('temporary');
       assert.equal((await request('DELETE', `/api/todos/${id}`)).status, 204);
       assert.deepEqual(await (await request('GET', '/api/todos')).json(), []);
+    });
+
+    test('logs each request with status, duration and a request id', async () => {
+      const res = await request('POST', '/api/todos', { title: 'log me' });
+      const entry = await waitForRequestLog('/api/todos');
+      assert.ok(entry, 'expected a request log line');
+      assert.equal(entry.level, 'info');
+      assert.equal(entry.method, 'POST');
+      assert.equal(entry.status, 201);
+      assert.equal(typeof entry.durationMs, 'number');
+      assert.ok(entry.durationMs >= 0);
+      assert.match(entry.requestId, /^[0-9a-f-]{36}$/);
+      assert.equal(res.headers.get('x-request-id'), entry.requestId);
+    });
+
+    test('keeps a request id supplied by the client', async () => {
+      const res = await request('GET', '/api/todos', undefined, { 'X-Request-Id': 'trace-42' });
+      assert.equal(res.headers.get('x-request-id'), 'trace-42');
+      assert.equal((await waitForRequestLog('/api/todos')).requestId, 'trace-42');
+    });
+
+    test('replaces a malformed client request id', async () => {
+      const res = await request('GET', '/api/todos', undefined, { 'X-Request-Id': 'not valid!' });
+      assert.match(res.headers.get('x-request-id'), /^[0-9a-f-]{36}$/);
+    });
+
+    test('does not log health probes', async () => {
+      await request('GET', '/healthz');
+      await request('GET', '/readyz');
+      await request('GET', '/api/todos');
+      await waitForRequestLog('/api/todos');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(logs.filter((e) => e.msg === 'request').map((e) => e.path), ['/api/todos']);
     });
 
     test('returns 404 for unknown or malformed ids', async () => {
