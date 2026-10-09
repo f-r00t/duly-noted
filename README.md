@@ -145,8 +145,15 @@ Write the statements under `-- Up Migration`, and the reverse under
 
 ## Reaching the database
 
-The database has no route from outside the cluster. To look at the data, open
-`psql` inside the Pod:
+The database has no route from outside the cluster; everything below goes
+through the Kubernetes API. Terraform writes the kind cluster's kubeconfig
+next to its state, so point `kubectl` at it first (from the repository root):
+
+```bash
+export KUBECONFIG=$PWD/terraform/duly-noted-config
+```
+
+To look at the data, open `psql` inside the Pod:
 
 ```bash
 kubectl -n duly-noted exec -it postgres-0 -- psql -U todos todos
