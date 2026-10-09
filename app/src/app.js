@@ -1,15 +1,46 @@
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const express = require('express');
+const { logger } = require('./log');
 
 const MAX_TITLE_LENGTH = 200;
+// Probes hit these every few seconds; logging them would drown everything else.
+const UNLOGGED_PATHS = new Set(['/healthz', '/readyz']);
+const REQUEST_ID = /^[\w.-]{1,128}$/;
 
 function parseId(raw) {
   return /^[1-9]\d{0,9}$/.test(raw) ? Number(raw) : null;
 }
 
-function createApp(store) {
+// One log line per request once the response has been sent: what was asked
+// for, what came back and how long it took. The request id is taken from an
+// X-Request-Id header when a proxy supplies one and generated otherwise, and
+// is echoed back so a client can quote it.
+function requestLogger(log) {
+  return (req, res, next) => {
+    const start = process.hrtime.bigint();
+    const incoming = req.get('x-request-id');
+    const requestId = incoming && REQUEST_ID.test(incoming) ? incoming : randomUUID();
+    res.locals.requestId = requestId;
+    res.set('X-Request-Id', requestId);
+    res.on('finish', () => {
+      if (UNLOGGED_PATHS.has(req.path)) return;
+      log.info('request', {
+        requestId,
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: Math.round(Number(process.hrtime.bigint() - start) / 1e3) / 1e3,
+      });
+    });
+    next();
+  };
+}
+
+function createApp(store, { log = logger } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  app.use(requestLogger(log));
   app.use(express.json({ limit: '10kb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -61,7 +92,7 @@ function createApp(store) {
     if (err.type === 'entity.parse.failed' || err.type === 'entity.too.large') {
       return res.status(err.status).json({ error: 'invalid request body' });
     }
-    console.error(err);
+    log.error('request failed', { requestId: res.locals.requestId, error: err.message, stack: err.stack });
     res.status(500).json({ error: 'internal server error' });
   });
 

@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { logger } = require('./log');
 
 // Both stores expose the same interface:
 //   init, ping, list, create, setCompleted, remove, close
@@ -40,7 +41,7 @@ const COLUMNS = 'id, title, completed, created_at AS "createdAt"';
 
 // Connection settings come from the standard PG* environment variables
 // (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
-function createPgStore(pool = new Pool()) {
+function createPgStore(pool = new Pool(), { log = logger } = {}) {
   return {
     async init({ retries = 30, delayMs = 1000 } = {}) {
       for (let attempt = 1; ; attempt++) {
@@ -55,7 +56,7 @@ function createPgStore(pool = new Pool()) {
           return;
         } catch (err) {
           if (attempt >= retries) throw err;
-          console.warn(`database not ready (${err.message}), retrying...`);
+          log.warn('database not ready, retrying', { attempt, retries, error: err.message });
           await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
