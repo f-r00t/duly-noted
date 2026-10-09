@@ -85,15 +85,19 @@ This single command:
 4. registers the `duly-noted` Argo CD Application, which points at `k8s/` on `main`.
 
 Argo CD then deploys the application, which becomes available at
-<http://localhost:8080>. `terraform output` shows how to open the Argo CD UI.
+<http://localhost:8080>.
+
+The Argo CD UI is at <https://localhost:8443> (self-signed certificate). Log in
+as `admin` with the password from:
 
 ```bash
-export KUBECONFIG=$PWD/duly-noted-config
-kubectl -n argocd get applications
-kubectl -n duly-noted get pods
+terraform output -raw argocd_admin_password
 ```
 
-Tear everything down with `terraform destroy`.
+The UI shows the `duly-noted` Application, its sync status and the history of
+rollouts with the git commit and image tag of each one.
+
+**Tear everything down with `terraform destroy`.**
 
 ## Deployment flow
 
