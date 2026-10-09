@@ -5,10 +5,15 @@ metadata:
   labels:
     app: duly-noted
 spec:
-  # The database lives in the pod, so there can only ever be one of them.
-  replicas: 1
+  # The database is a separate StatefulSet (postgres.yaml), so the
+  # application is stateless: it can run several replicas and a release
+  # replaces them one at a time without taking the service offline.
+  replicas: 2
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: duly-noted
@@ -17,61 +22,6 @@ spec:
       labels:
         app: duly-noted
     spec:
-      securityContext:
-        fsGroup: 70
-      # PostgreSQL runs as a native sidecar: an init container with
-      # restartPolicy Always starts before the app, stays up for the lifetime
-      # of the pod and is stopped after the app on shutdown.
-      initContainers:
-        - name: postgres
-          image: postgres:17-alpine
-          restartPolicy: Always
-          ports:
-            - name: postgres
-              containerPort: 5432
-          env:
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: database
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: username
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-credentials
-                  key: password
-            - name: PGDATA
-              value: /var/lib/postgresql/data/pgdata
-          startupProbe:
-            exec:
-              command: ["sh", "-c", "pg_isready -h 127.0.0.1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
-            periodSeconds: 2
-            failureThreshold: 60
-          livenessProbe:
-            exec:
-              command: ["sh", "-c", "pg_isready -h 127.0.0.1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
-            periodSeconds: 10
-          resources:
-            requests:
-              cpu: 50m
-              memory: 128Mi
-            limits:
-              memory: 512Mi
-          securityContext:
-            runAsUser: 70
-            runAsGroup: 70
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-          volumeMounts:
-            - name: postgres-data
-              mountPath: /var/lib/postgresql/data
-            - name: postgres-run
-              mountPath: /var/run/postgresql
       containers:
         - name: app
           image: ghcr.io/f-r00t/duly-noted
@@ -82,7 +32,7 @@ spec:
             - name: PORT
               value: "3000"
             - name: PGHOST
-              value: localhost
+              value: postgres
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
@@ -98,6 +48,8 @@ spec:
                 secretKeyRef:
                   name: postgres-credentials
                   key: password
+          # Readiness checks the database connection, so a new Pod only
+          # receives traffic once it can reach PostgreSQL.
           readinessProbe:
             httpGet:
               path: /readyz
@@ -121,9 +73,3 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
-      volumes:
-        - name: postgres-data
-          persistentVolumeClaim:
-            claimName: postgres-data
-        - name: postgres-run
-          emptyDir: {}
