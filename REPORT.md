@@ -185,3 +185,8 @@ The generated database password and the Argo CD admin password live in the
 local Terraform state, which is acceptable for a developer machine and not
 for a shared environment. Dependabot does not see the PostgreSQL image
 referenced in the manifests, since it only scans Dockerfiles. 
+
+## Use of AI-assisted tools
+
+We used Claude Code during the project. What it was used for and how we
+worked with it is documented in [AI_USAGE.md](AI_USAGE.md).

@@ -5,6 +5,9 @@ A small todo web application with a complete DevOps pipeline around it. Users
 can create, complete and delete todo items, which are persisted in a PostgreSQL
 database that runs alongside the application in the cluster.
 
+The project report is in [REPORT.md](REPORT.md) and the use of AI-assisted
+tools is documented in [AI_USAGE.md](AI_USAGE.md).
+
 ## Overview
 
 ```
