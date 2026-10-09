@@ -34,6 +34,11 @@ resources in the cluster.
 
 ![The application's resources as seen in Argo CD](docs/argocd-resources.png)
 
+See [k8s/deployment.yaml](k8s/deployment.yaml), [k8s/service.yaml](k8s/service.yaml),
+[k8s/postgres.yaml](k8s/postgres.yaml), [k8s/networkpolicy.yaml](k8s/networkpolicy.yaml),
+[k8s/migrate-job.yaml](k8s/migrate-job.yaml) and the application code and
+migrations under [app/](app/).
+
 ### 2. Deployment
 
 Deployment is pull-based and follows the GitOps model. The Kubernetes
@@ -66,6 +71,11 @@ flowchart LR
     end
 ```
 
+See [k8s/kustomization.yaml](k8s/kustomization.yaml), where the image tag is
+set, the Argo CD Application defined in [terraform/main.tf](terraform/main.tf),
+and the deploy job in [.github/workflows/release.yml](.github/workflows/release.yml)
+that commits the tag.
+
 ### 3. Continuous integration
 
 Every pull request runs four checks in GitHub Actions. The test suite runs
@@ -95,6 +105,10 @@ flowchart LR
     end
 ```
 
+See [.github/workflows/ci.yml](.github/workflows/ci.yml),
+[.github/workflows/release.yml](.github/workflows/release.yml), the
+[Dockerfile](Dockerfile) and the tests under [app/test/](app/test/).
+
 ### 4. Infrastructure
 
 The whole environment is described in Terraform. A single `terraform apply`
@@ -105,3 +119,6 @@ The same command on an empty machine gives a working environment in a couple
 of minutes, and `terraform destroy` removes it again. No secret is stored in
 the repository because the password is generated at apply time and the
 manifests only reference it by name.
+
+See the [terraform/](terraform/) directory and the section
+[Creating the environment](README.md#creating-the-environment) in the README.
