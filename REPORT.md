@@ -122,3 +122,40 @@ manifests only reference it by name.
 
 See the [terraform/](terraform/) directory and the section
 [Creating the environment](README.md#creating-the-environment) in the README.
+
+## Design decisions
+
+We run the application in a kind cluster because it is the standard way to
+run Kubernetes locally and we did not want to pay for hosted infrastructure. A
+small todo application is simple to self-host, so a local cluster is a
+realistic target for it rather than a compromise.
+
+Terraform describes the environment because it is the standard
+infrastructure-as-code tool and has providers for kind, Kubernetes and Helm,
+so one tool and one command take the environment from nothing to a running
+Argo CD.
+
+Argo CD handles deployment because it is easy to set up and gives a lot for
+free. Pull-based deployment means that no cluster credentials ever leave the
+cluster. Drift detection and self-healing come with the automated sync, sync
+waves and hooks give us the ordering of database, migrations and application,
+and the history view shows every rollout with its git revision. Its user
+interface is also the best way we found to see what is actually running.
+
+GitHub Actions and GitHub Container Registry were chosen because the code
+already lives on GitHub. Pull requests, CI, images and dependency updates then
+sit on one platform, and the workflows authenticate with the token GitHub
+provides rather than with credentials we would have to manage.
+
+[Dependabot](https://docs.github.com/en/code-security/dependabot) covers
+dependency updates because the likeliest source of faults and security issues
+in a small application is its dependencies rather than the code itself. It
+watches the npm packages, the Docker base image, the GitHub Actions and the
+Terraform providers, and every update goes through the same CI as any other
+pull request.
+
+For database migrations we use
+[node-pg-migrate](https://github.com/salsita/node-pg-migrate) rather than a
+runner of our own because migrations are easy to get subtly wrong. It gives us
+ordered SQL files, a tracking table and an advisory lock against concurrent
+runs, which is everything the migration Job needs.
