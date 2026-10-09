@@ -31,7 +31,7 @@ resource "kind_cluster" "this" {
 
 # The database credentials are generated here rather than committed to the
 # repository. The manifests in k8s/ only reference the Secret by name.
-resource "kubernetes_namespace" "app" {
+resource "kubernetes_namespace_v1" "app" {
   metadata {
     name = var.app_namespace
   }
@@ -42,10 +42,10 @@ resource "random_password" "postgres" {
   special = false
 }
 
-resource "kubernetes_secret" "postgres" {
+resource "kubernetes_secret_v1" "postgres" {
   metadata {
     name      = "postgres-credentials"
-    namespace = kubernetes_namespace.app.metadata[0].name
+    namespace = kubernetes_namespace_v1.app.metadata[0].name
   }
 
   data = {
@@ -83,7 +83,7 @@ resource "helm_release" "argocd" {
 
 # The admin password Argo CD generates on first install, so that logging in
 # to the UI only takes `terraform output`.
-data "kubernetes_secret" "argocd_admin" {
+data "kubernetes_secret_v1" "argocd_admin" {
   metadata {
     name      = "argocd-initial-admin-secret"
     namespace = helm_release.argocd.namespace
@@ -112,7 +112,7 @@ resource "helm_release" "argocd_apps" {
         }
         destination = {
           server    = "https://kubernetes.default.svc"
-          namespace = kubernetes_namespace.app.metadata[0].name
+          namespace = kubernetes_namespace_v1.app.metadata[0].name
         }
         syncPolicy = {
           automated = {
@@ -124,5 +124,5 @@ resource "helm_release" "argocd_apps" {
     }
   })]
 
-  depends_on = [kubernetes_secret.postgres]
+  depends_on = [kubernetes_secret_v1.postgres]
 }

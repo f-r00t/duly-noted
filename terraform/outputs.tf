@@ -15,6 +15,6 @@ output "argocd_url" {
 
 output "argocd_admin_password" {
   description = "Initial password of the Argo CD admin user. Show it with `terraform output -raw argocd_admin_password`."
-  value       = data.kubernetes_secret.argocd_admin.data["password"]
+  value       = data.kubernetes_secret_v1.argocd_admin.data["password"]
   sensitive   = true
 }

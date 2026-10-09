@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  # Only the application Pods may open connections to the database. Every
+  # other Pod in the cluster is refused.
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: duly-noted
+      ports:
+        - protocol: TCP
+          port: 5432

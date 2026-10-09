@@ -3,7 +3,7 @@ A life changing todo list app
 
 A small todo web application with a complete DevOps pipeline around it. Users
 can create, complete and delete todo items, which are persisted in a PostgreSQL
-database running as a sidecar container next to the application.
+database that runs alongside the application in the cluster.
 
 ## Overview
 
@@ -111,9 +111,29 @@ Argo CD polls the repository (every three minutes by default), notices the
 commit and syncs the cluster. Nothing outside the cluster needs access to it:
 the repository is the single source of truth and a rollback is a `git revert`.
 
-The database is a native sidecar (an init container with
-`restartPolicy: Always`), so it starts before the application and is stopped
-after it. Its data lives on a PersistentVolumeClaim and survives new releases.
+PostgreSQL runs as its own StatefulSet behind a headless Service, and Argo CD
+syncs it before the application. A NetworkPolicy only lets the application
+Pods connect to it. The application itself is stateless and runs two
+replicas with a rolling update.
+
+## Reaching the database
+
+The database has no route from outside the cluster. To look at the data, open
+`psql` inside the Pod:
+
+```bash
+kubectl -n duly-noted exec -it postgres-0 -- psql -U todos todos
+```
+
+To use a local client instead, forward the port through the Kubernetes API,
+which authenticates with your kubeconfig instead of exposing the database on
+the network:
+
+```bash
+kubectl -n duly-noted port-forward svc/postgres 15432:5432
+kubectl -n duly-noted get secret postgres-credentials -o jsonpath='{.data.password}' | base64 -d
+psql -h localhost -p 15432 -U todos todos
+```
 
 ## One-time GitHub setup
 
