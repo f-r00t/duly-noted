@@ -5,7 +5,7 @@ metadata:
   labels:
     app: postgres
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   # Headless: resolves straight to the Pod inside the cluster. There is no
   # NodePort, so the database has no route from outside, and the
@@ -25,9 +25,9 @@ metadata:
   labels:
     app: postgres
   annotations:
-    # Argo CD creates and waits for the database before it syncs the
-    # application (sync wave 0).
-    argocd.argoproj.io/sync-wave: "-1"
+    # Argo CD creates and waits for the database (wave -2) before it runs
+    # the migrations (wave -1) and then syncs the application (wave 0).
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   serviceName: postgres
   # One PostgreSQL instance. Its volume is ReadWriteOnce and PostgreSQL does

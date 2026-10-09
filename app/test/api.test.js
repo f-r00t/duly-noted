@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { Pool } = require('pg');
 const { createApp, MAX_TITLE_LENGTH } = require('../src/app');
 const { createMemoryStore, createPgStore } = require('../src/store');
+const { migrate } = require('../src/migrate');
 
 // The same suite runs against every store. The PostgreSQL run is skipped
 // unless PGHOST is set (CI provides a postgres service container).
@@ -13,6 +14,7 @@ if (process.env.PGHOST) {
     name: 'postgres',
     setup: async () => {
       const pool = new Pool();
+      await migrate(pool);
       const store = createPgStore(pool);
       await store.init();
       return { store, reset: () => pool.query('TRUNCATE todos RESTART IDENTITY') };

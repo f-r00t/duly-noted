@@ -8,6 +8,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY app/src ./src
 COPY app/public ./public
+COPY app/migrations ./migrations
 
 USER node
 EXPOSE 3000

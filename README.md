@@ -49,7 +49,13 @@ npm start        # http://localhost:3000
 ```
 
 Without a database the app uses an in-memory store. To use PostgreSQL, set the
-standard `PGHOST`, `PGUSER`, `PGPASSWORD` and `PGDATABASE` environment variables.
+standard `PGHOST`, `PGUSER`, `PGPASSWORD` and `PGDATABASE` environment variables
+and apply the [migrations](#database-migrations) first:
+
+```bash
+npm run migrate
+npm start
+```
 
 ```bash
 npm test         # also runs the suite against PostgreSQL when PGHOST is set
@@ -112,9 +118,30 @@ commit and syncs the cluster. Nothing outside the cluster needs access to it:
 the repository is the single source of truth and a rollback is a `git revert`.
 
 PostgreSQL runs as its own StatefulSet behind a headless Service, and Argo CD
-syncs it before the application. A NetworkPolicy only lets the application
+syncs it, then the [database migrations](#database-migrations), before the
+application. A NetworkPolicy only lets the application
 Pods connect to it. The application itself is stateless and runs two
 replicas with a rolling update.
+
+## Database migrations
+
+The schema is defined by the SQL files in [app/migrations](app/migrations),
+applied in order by [node-pg-migrate](https://github.com/salsita/node-pg-migrate). 
+
+In the cluster the migrations run as a Kubernetes Job,
+[k8s/migrate-job.yaml](k8s/migrate-job.yaml), that Argo CD executes as a sync
+hook between the database and the application. 
+
+To add a migration:
+
+```bash
+cd app
+npm run migrate:create -- add-due-date      # creates migrations/000N_add-due-date.sql
+npm run migrate                              # applies it locally
+```
+
+Write the statements under `-- Up Migration`, and the reverse under
+`-- Down Migration`.
 
 ## Reaching the database
 

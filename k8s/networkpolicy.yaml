@@ -3,10 +3,10 @@ kind: NetworkPolicy
 metadata:
   name: postgres
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
-  # Only the application Pods may open connections to the database. Every
-  # other Pod in the cluster is refused.
+  # Only the application and the migration Job may open connections to the
+  # database. Every other Pod in the cluster is refused.
   podSelector:
     matchLabels:
       app: postgres
@@ -17,6 +17,9 @@ spec:
         - podSelector:
             matchLabels:
               app: duly-noted
+        - podSelector:
+            matchLabels:
+              app: duly-noted-migrate
       ports:
         - protocol: TCP
           port: 5432

@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: duly-noted-migrate
+  annotations:
+    # A sync hook in wave -1: it runs after the database (wave -2) is
+    # healthy and must succeed before Argo CD touches the application (wave
+    # 0). If it fails, the sync fails and the old version keeps running.
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "-1"
+    # A Job's spec is immutable, so Argo CD deletes the previous run and
+    # creates a new one on every sync. The last run stays visible until then.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        # Not `app: duly-noted`: that label would make this Pod a Service
+        # endpoint. The NetworkPolicy admits this label to the database.
+        app: duly-noted-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          # Same image and tag as the application, so the migrations match
+          # the code about to be rolled out.
+          image: ghcr.io/f-r00t/duly-noted
+          command: ["node", "src/migrate.js"]
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: database
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
